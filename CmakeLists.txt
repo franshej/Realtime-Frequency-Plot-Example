@@ -1,0 +1,24 @@
+cmake_minimum_required(VERSION 3.12)
+
+project(SimpleFreqRespDemo 1.0.0)
+
+set(SOURCE source/${PROJECT_NAME}.h)
+
+add_subdirectory(externals/JUCE)
+add_subdirectory(externals/CMP)
+
+juce_add_gui_app(${PROJECT_NAME}
+    PRODUCT_NAME "SimpleFreqRespDemo.")
+
+target_sources(${PROJECT_NAME} PRIVATE
+    ${SOURCE})
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:${PROJECT_NAME}p,JUCE_PROJECT_NAME>"
+    JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:${PROJECT_NAME},JUCE_VERSION>")
+
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    juce::juce_gui_extra
+    cmp_plot)
