@@ -15,29 +15,42 @@
 
 #pragma once
 
+#include <cmp_plot.h>
+#include <juce_audio_utils/juce_audio_utils.h>
+#include <juce_dsp/juce_dsp.h>
+
+using namespace juce;
+
 //==============================================================================
 class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
  public:
-  SimpleFreqRespDemo()
-      : forwardFFT(fftOrder), spectrogramImage(Image::RGB, 512, 512, true) {
-    setOpaque(true);
+  SimpleFreqRespDemo() {
 
-    RuntimePermissions::request(RuntimePermissions::recordAudio,
-                                [this](bool granted) {
-                                  int numInputChannels = granted ? 2 : 0;
-                                  setAudioChannels(numInputChannels, 2);
-                                });
+    RuntimePermissions::request(
+        RuntimePermissions::recordAudio, [this](bool granted) {
+          int numInputChannels = granted ? 2 : 0;
+          setAudioChannels(numInputChannels, num_channels);
+        });
 
     startTimerHz(60);
     setSize(700, 500);
+
+    addAndMakeVisible(m_plot);
+
+    m_plot.setBounds(getBounds());
+    m_plot.yLim(-50.0f, 20.0f);
+    m_plot.xLim(100.0f, 18'000.0f);
   }
 
   ~SimpleFreqRespDemo() override { shutdownAudio(); }
 
   //==============================================================================
   void prepareToPlay(int /*samplesPerBlockExpected*/,
-                     double /*newSampleRate*/) override {
-    // (nothing to do here)
+                     double new_sample_rate) override {
+    for (auto& x : x_data) {
+      cmp::iota_delta<float>(x.begin(), x.end(), 1.0f,
+                             float(new_sample_rate / float(2 * fftSize)));
+    }
   }
 
   void releaseResources() override {
@@ -49,82 +62,86 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
       const auto* channelData =
           bufferToFill.buffer->getReadPointer(0, bufferToFill.startSample);
 
-      for (auto i = 0; i < bufferToFill.numSamples; ++i)
-        pushNextSampleIntoFifo(channelData[i]);
+      for (auto ch_idx = 0u; ch_idx != num_channels; ++ch_idx) {
+        for (auto i = 0; i < bufferToFill.numSamples; ++i)
+          pushNextSampleIntoFifo(channelData[i], ch_idx);
+      }
 
       bufferToFill.clearActiveBufferRegion();
     }
   }
 
   //==============================================================================
-  void paint(Graphics& g) override {
-    g.fillAll(Colours::black);
-
-    g.setOpacity(1.0f);
-    g.drawImage(spectrogramImage, getLocalBounds().toFloat());
-  }
+  void paint(Graphics& g) override {}
 
   void timerCallback() override {
     if (nextFFTBlockReady) {
-      drawNextLineOfSpectrogram();
+      for (size_t i = 0; i < num_channels; i++) {
+        drawNextFrequencyResponse(i);
+      }
+
       nextFFTBlockReady = false;
-      repaint();
     }
   }
 
-  void pushNextSampleIntoFifo(float sample) noexcept {
-    // if the fifo contains enough data, set a flag to say
-    // that the next line should now be rendered..
-    if (fifoIndex == fftSize) {
+  void pushNextSampleIntoFifo(const float sample,
+                              const std::size_t ch_idx) noexcept {
+    if (fifoIndex[ch_idx] == fftSize) {
       if (!nextFFTBlockReady) {
-        zeromem(fftData, sizeof(fftData));
-        memcpy(fftData, fifo, sizeof(fifo));
+        zeromem(fftData[ch_idx].data(), fftData[ch_idx].size());
+        memcpy(fftData[ch_idx].data(), fifo[ch_idx].data(),
+               fifo[ch_idx].size());
+
         nextFFTBlockReady = true;
       }
 
-      fifoIndex = 0;
+      fifoIndex[ch_idx] = 0;
     }
 
-    fifo[fifoIndex++] = sample;
+    fifo[ch_idx][fifoIndex[ch_idx]++] = sample;
   }
 
-  void drawNextLineOfSpectrogram() {
-    auto rightHandEdge = spectrogramImage.getWidth() - 1;
-    auto imageHeight = spectrogramImage.getHeight();
+  void drawNextFrequencyResponse(const std::size_t ch_idx) {
+    forwardFFT[ch_idx].performFrequencyOnlyForwardTransform(
+        fftData[ch_idx].data());
 
-    // first, shuffle our image leftwards by 1 pixel..
-    spectrogramImage.moveImageSection(0, 0, 1, 0, rightHandEdge, imageHeight);
+    constexpr auto scale = 1.0f / float(fftSize);
 
-    // then render our FFT data..
-    forwardFFT.performFrequencyOnlyForwardTransform(fftData);
+    for (auto& s : fftData[ch_idx]) {
+      s = s * scale;
 
-    // find the range of values produced, so we can scale our rendering to
-    // show up the detail clearly
-    auto maxLevel = FloatVectorOperations::findMinAndMax(fftData, fftSize / 2);
+      if (s < 1e-5f) {
+        s = -50;
+        continue;
+      }
 
-    for (auto y = 1; y < imageHeight; ++y) {
-      auto skewedProportionY =
-          1.0f - std::exp(std::log((float)y / (float)imageHeight) * 0.2f);
-      auto fftDataIndex =
-          jlimit(0, fftSize / 2, (int)(skewedProportionY * (int)fftSize / 2));
-      auto level = jmap(fftData[fftDataIndex], 0.0f,
-                        jmax(maxLevel.getEnd(), 1e-5f), 0.0f, 1.0f);
-
-      spectrogramImage.setPixelAt(rightHandEdge, y,
-                                  Colour::fromHSV(level, 1.0f, level, 1.0f));
+      s = 10.0f * log10f(s);
     }
+
+    m_plot.plot(fftData, x_data);
   }
 
-  enum { fftOrder = 10, fftSize = 1 << fftOrder };
+  const enum { fftOrder = 11, fftSize = 1 << fftOrder };
 
  private:
-  dsp::FFT forwardFFT;
-  Image spectrogramImage;
+  static constexpr int num_channels{1};
+  
+  std::vector<std::vector<float>> x_data = std::vector<std::vector<float>>(
+      num_channels, std::vector<float>(2 * fftSize));
 
-  float fifo[fftSize];
-  float fftData[2 * fftSize];
-  int fifoIndex = 0;
+  std::array<dsp::FFT, num_channels> forwardFFT = {dsp::FFT(fftOrder)};
+
+  std::vector<std::vector<float>> fifo = std::vector<std::vector<float>>(
+      num_channels, std::vector<float>(fftSize));
+
+  std::vector<std::vector<float>> fftData = std::vector<std::vector<float>>(
+      num_channels, std::vector<float>(2 * fftSize));
+
+  std::vector<int> fifoIndex = std::vector<int>(num_channels);
+
   bool nextFFTBlockReady = false;
+
+  cmp::SemiLogX m_plot;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SimpleFreqRespDemo)
 };

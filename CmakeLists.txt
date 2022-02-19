@@ -1,24 +1,32 @@
 cmake_minimum_required(VERSION 3.12)
 
-project(SimpleFreqRespDemo 1.0.0)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-set(SOURCE source/${PROJECT_NAME}.h)
+project(SimpleFreqRespDemo VERSION 1.0.0)
+
+set(SOURCE source/${PROJECT_NAME}.h
+           source/${PROJECT_NAME}.cpp)
 
 add_subdirectory(externals/JUCE)
 add_subdirectory(externals/CMP)
 
 juce_add_gui_app(${PROJECT_NAME}
-    PRODUCT_NAME "SimpleFreqRespDemo.")
+    PRODUCT_NAME "SimpleFreqRespDemo")
 
 target_sources(${PROJECT_NAME} PRIVATE
     ${SOURCE})
+    
+target_include_directories(${PROJECT_NAME} PRIVATE source)
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
-    JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:${PROJECT_NAME}p,JUCE_PROJECT_NAME>"
+    JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:${PROJECT_NAME},JUCE_PROJECT_NAME>"
     JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:${PROJECT_NAME},JUCE_VERSION>")
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     juce::juce_gui_extra
+    juce::juce_dsp
+    juce::juce_audio_utils
     cmp_plot)
