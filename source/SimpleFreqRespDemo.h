@@ -24,22 +24,36 @@ using namespace juce;
 //==============================================================================
 class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
  public:
-  SimpleFreqRespDemo() {
-
+  SimpleFreqRespDemo()
+      : audioSetupComp(deviceManager,
+                       0,             // minimum input channels
+                       num_channels,  // maximum input channels
+                       0,             // minimum output channels
+                       2,             // maximum output channels
+                       false,         // ability to select midi inputs
+                       false,         // ability to select midi output device
+                       false,         // treat channels as stereo pairs
+                       false)         // hide advanced options
+        ,
+        forwardFFT(fftOrder),
+        window(fftSize, juce::dsp::WindowingFunction<float>::hann) {
     RuntimePermissions::request(
         RuntimePermissions::recordAudio, [this](bool granted) {
           int numInputChannels = granted ? 2 : 0;
           setAudioChannels(numInputChannels, num_channels);
         });
 
-    startTimerHz(60);
+    addAndMakeVisible(audioSetupComp);
+
+    startTimerHz(30);
     setSize(700, 500);
 
     addAndMakeVisible(m_plot);
 
-    m_plot.setBounds(getBounds());
     m_plot.yLim(-50.0f, 20.0f);
     m_plot.xLim(100.0f, 18'000.0f);
+
+    m_plot.setLegend({"Left input", "Right input"});
   }
 
   ~SimpleFreqRespDemo() override { shutdownAudio(); }
@@ -49,8 +63,16 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
                      double new_sample_rate) override {
     for (auto& x : x_data) {
       cmp::iota_delta<float>(x.begin(), x.end(), 1.0f,
-                             float(new_sample_rate / float(2 * fftSize)));
+          float(new_sample_rate + 1) / float(fftSize));
     }
+  }
+
+  void resized() override {
+    auto rect = getLocalBounds();
+
+    m_plot.setBounds(rect.removeFromLeft(proportionOfWidth(0.6f)));
+
+    audioSetupComp.setBounds(rect.removeFromRight(proportionOfWidth(0.4f)));
   }
 
   void releaseResources() override {
@@ -62,7 +84,8 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
       const auto* channelData =
           bufferToFill.buffer->getReadPointer(0, bufferToFill.startSample);
 
-      for (auto ch_idx = 0u; ch_idx != num_channels; ++ch_idx) {
+      for (auto ch_idx = 0u; ch_idx != num_channels;
+           ++ch_idx) {
         for (auto i = 0; i < bufferToFill.numSamples; ++i)
           pushNextSampleIntoFifo(channelData[i], ch_idx);
       }
@@ -77,8 +100,10 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
   void timerCallback() override {
     if (nextFFTBlockReady) {
       for (size_t i = 0; i < num_channels; i++) {
-        drawNextFrequencyResponse(i);
+        calcNextFrequencyResponse(i);
       }
+
+      m_plot.plot(fftData, x_data);
 
       nextFFTBlockReady = false;
     }
@@ -88,9 +113,7 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
                               const std::size_t ch_idx) noexcept {
     if (fifoIndex[ch_idx] == fftSize) {
       if (!nextFFTBlockReady) {
-        zeromem(fftData[ch_idx].data(), fftData[ch_idx].size());
-        memcpy(fftData[ch_idx].data(), fifo[ch_idx].data(),
-               fifo[ch_idx].size());
+        std::copy(fifo[ch_idx].begin(), fifo[ch_idx].end(), fftData[ch_idx].begin());
 
         nextFFTBlockReady = true;
       }
@@ -101,14 +124,20 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
     fifo[ch_idx][fifoIndex[ch_idx]++] = sample;
   }
 
-  void drawNextFrequencyResponse(const std::size_t ch_idx) {
-    forwardFFT[ch_idx].performFrequencyOnlyForwardTransform(
-        fftData[ch_idx].data());
+  void calcNextFrequencyResponse(const std::size_t ch_idx) {
+    window.multiplyWithWindowingTable(fftData[ch_idx].data(), fftSize);  // [1]
+
+    forwardFFT.performFrequencyOnlyForwardTransform(fftData[ch_idx].data());
 
     constexpr auto scale = 1.0f / float(fftSize);
 
+    constexpr auto smoothing_factor = 0.5f;
+
+    auto it_smooth = fftDataSmooth[ch_idx].begin();
     for (auto& s : fftData[ch_idx]) {
       s = s * scale;
+
+      *it_smooth++ = s = (*it_smooth + s) * smoothing_factor;
 
       if (s < 1e-5f) {
         s = -50;
@@ -117,25 +146,30 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
 
       s = 10.0f * log10f(s);
     }
-
-    m_plot.plot(fftData, x_data);
   }
 
   const enum { fftOrder = 11, fftSize = 1 << fftOrder };
 
  private:
   static constexpr int num_channels{1};
-  
-  std::vector<std::vector<float>> x_data = std::vector<std::vector<float>>(
-      num_channels, std::vector<float>(2 * fftSize));
 
-  std::array<dsp::FFT, num_channels> forwardFFT = {dsp::FFT(fftOrder)};
+  juce::AudioDeviceSelectorComponent audioSetupComp;
 
-  std::vector<std::vector<float>> fifo = std::vector<std::vector<float>>(
-      num_channels, std::vector<float>(fftSize));
+  juce::dsp::WindowingFunction<float> window;
 
-  std::vector<std::vector<float>> fftData = std::vector<std::vector<float>>(
-      num_channels, std::vector<float>(2 * fftSize));
+  dsp::FFT forwardFFT;
+
+  std::vector<std::vector<float>> fifo =
+      decltype(fifo)(num_channels, std::vector<float>(fftSize));
+
+  decltype(fifo) x_data =
+      decltype(fifo)(num_channels, std::vector<float>(2 * fftSize));
+
+  decltype(fifo) fftData =
+      decltype(fifo)(num_channels, std::vector<float>(2 * fftSize));
+
+  decltype(fifo) fftDataSmooth =
+      decltype(fifo)(num_channels, std::vector<float>(2 * fftSize));
 
   std::vector<int> fifoIndex = std::vector<int>(num_channels);
 
