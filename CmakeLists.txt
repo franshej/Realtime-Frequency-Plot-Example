@@ -13,7 +13,9 @@ add_subdirectory(externals/JUCE)
 add_subdirectory(externals/CMP)
 
 juce_add_gui_app(${PROJECT_NAME}
-    PRODUCT_NAME "SimpleFreqRespDemo")
+    PRODUCT_NAME "SimpleFreqRespDemo"
+    MICROPHONE_PERMISSION_ENABLED TRUE
+    MICROPHONE_PERMISSION_TEXT "This example app needs permission do use your microphone.")
 
 target_sources(${PROJECT_NAME} PRIVATE
     ${SOURCE})
