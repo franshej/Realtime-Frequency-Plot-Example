@@ -50,7 +50,7 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
 
     addAndMakeVisible(m_plot);
 
-    m_plot.yLim(-50.0f, 20.0f);
+    m_plot.yLim(-60.0f, 10.0f);
     m_plot.xLim(100.0f, 18'000.0f);
 
     m_plot.setLegend({"Left input", "Right input"});
@@ -63,7 +63,7 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
                      double new_sample_rate) override {
     for (auto& x : x_data) {
       cmp::iota_delta<float>(x.begin(), x.end(), 1.0f,
-          float(new_sample_rate + 1) / float(fftSize));
+                             float(new_sample_rate + 1) / float(fftSize));
     }
   }
 
@@ -84,8 +84,7 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
       const auto* channelData =
           bufferToFill.buffer->getReadPointer(0, bufferToFill.startSample);
 
-      for (auto ch_idx = 0u; ch_idx != num_channels;
-           ++ch_idx) {
+      for (auto ch_idx = 0u; ch_idx != num_channels; ++ch_idx) {
         for (auto i = 0; i < bufferToFill.numSamples; ++i)
           pushNextSampleIntoFifo(channelData[i], ch_idx);
       }
@@ -113,7 +112,8 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
                               const std::size_t ch_idx) noexcept {
     if (fifoIndex[ch_idx] == fftSize) {
       if (!nextFFTBlockReady) {
-        std::copy(fifo[ch_idx].begin(), fifo[ch_idx].end(), fftData[ch_idx].begin());
+        std::copy(fifo[ch_idx].begin(), fifo[ch_idx].end(),
+                  fftData[ch_idx].begin());
 
         nextFFTBlockReady = true;
       }
@@ -139,8 +139,8 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
 
       *it_smooth++ = s = (*it_smooth + s) * smoothing_factor;
 
-      if (s < 1e-5f) {
-        s = -50;
+      if (s < 1e-6f) {
+        s = -70;
         continue;
       }
 
@@ -151,7 +151,7 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
   enum { fftOrder = 11, fftSize = 1 << fftOrder };
 
  private:
-  static constexpr int num_channels{1};
+  static constexpr int num_channels{2};
 
   juce::AudioDeviceSelectorComponent audioSetupComp;
 
