@@ -148,7 +148,7 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
     }
   }
 
-  const enum { fftOrder = 11, fftSize = 1 << fftOrder };
+  enum { fftOrder = 11, fftSize = 1 << fftOrder };
 
  private:
   static constexpr int num_channels{1};

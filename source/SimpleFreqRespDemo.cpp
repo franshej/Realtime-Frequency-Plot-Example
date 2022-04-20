@@ -1,5 +1,5 @@
 #include <juce_gui_extra/juce_gui_extra.h>
-#include <SimpleFreqRespDemo.h>
+#include "SimpleFreqRespDemo.h"
 
 //==============================================================================
 class SimpleFreqRespDemoApp : public juce::JUCEApplication {
