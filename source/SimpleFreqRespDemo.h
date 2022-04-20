@@ -46,7 +46,7 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
     addAndMakeVisible(audioSetupComp);
 
     startTimerHz(30);
-    setSize(700, 500);
+    setSize(900, 400);
 
     addAndMakeVisible(m_plot);
 
@@ -70,9 +70,9 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
   void resized() override {
     auto rect = getLocalBounds();
 
-    m_plot.setBounds(rect.removeFromLeft(proportionOfWidth(0.6f)));
+    m_plot.setBounds(rect.removeFromLeft(proportionOfWidth(0.7f)));
 
-    audioSetupComp.setBounds(rect.removeFromRight(proportionOfWidth(0.4f)));
+    audioSetupComp.setBounds(rect.removeFromRight(proportionOfWidth(0.3f)));
   }
 
   void releaseResources() override {
@@ -139,12 +139,14 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
 
       *it_smooth++ = s = (*it_smooth + s) * smoothing_factor;
 
-      if (s < 1e-6f) {
+      if (s < 1e-7f) {
         s = -70;
         continue;
       }
 
-      s = 10.0f * log10f(s);
+      constexpr auto smoothing_compensation = 10.0f;
+
+      s = 10.0f * log10f(s) + smoothing_compensation;
     }
   }
 
