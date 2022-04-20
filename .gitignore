@@ -1,3 +1,4 @@
 JUCE
 build
 .cache
+.DS_Store
