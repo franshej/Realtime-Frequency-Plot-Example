@@ -48,6 +48,10 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
     startTimerHz(30);
     setSize(900, 400);
 
+    m_plot.setTitle("Left & Right input frequency information");
+    m_plot.setYLabel("Power [dB]");
+    m_plot.setXLabel("Frequency [Hz]");
+
     addAndMakeVisible(m_plot);
 
     m_plot.yLim(-60.0f, 10.0f);
