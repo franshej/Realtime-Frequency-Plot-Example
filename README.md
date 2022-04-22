@@ -1,6 +1,8 @@
 # Realtime frequency plot example app
 
-This is a simple example app for the CustomMatPlot Library. It plots the frequency response of the incoming microphone signal or the chosen input from the device configuration. The app is based on the SimpleFFT example from JUCE.
+![Image](img/ui.png)
+
+This is a simple example app for the CustomMatPlot Library. It plots the frequency response of the incoming microphone signal or the chosen input in the device manager. The app is based on the SimpleFFT example from JUCE.
 
 ## Requirements
 <a name="requirements"></a>
@@ -10,9 +12,16 @@ This is a simple example app for the CustomMatPlot Library. It plots the frequen
 
 ## Build
 ```sh
+# Clone respiratory
+git clone https://gitlab.com/frans.rosencrantz/realtime-frequency-plot-example.git
+cd realtime-frequency-plot-example
+
 mkdir build
 cd build
+# Configure
 cmake ../
+
+# Build
 make -j4
 ```
 
