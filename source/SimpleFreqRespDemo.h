@@ -18,6 +18,7 @@
 #include <cmp_plot.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_dsp/juce_dsp.h>
+#include <string>
 
 using namespace juce;
 
@@ -44,6 +45,8 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
         });
 
     addAndMakeVisible(audioSetupComp);
+    addAndMakeVisible(m_plot);
+    addAndMakeVisible(m_tracepoint_cb_label);
 
     startTimerHz(30);
     setSize(900, 400);
@@ -52,12 +55,19 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
     m_plot.setYLabel("Power [dB]");
     m_plot.setXLabel("Frequency [Hz]");
 
-    addAndMakeVisible(m_plot);
-
     m_plot.yLim(-60.0f, 10.0f);
     m_plot.xLim(100.0f, 18'000.0f);
 
     m_plot.setLegend({"Left input", "Right input"});
+
+    m_plot.onTraceValueChange = [this](auto*, auto previous_trace_point,
+                                       auto new_trace_point) {
+      this->m_tracepoint_cb_label.setText(
+          "Callback from tracepoint:\nX: " +
+              std::to_string(new_trace_point.getX()) +
+              "\nY: " + std::to_string(new_trace_point.getY()),
+          juce::NotificationType::dontSendNotification);
+    };
   }
 
   ~SimpleFreqRespDemo() override { shutdownAudio(); }
@@ -74,9 +84,15 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
   void resized() override {
     auto rect = getLocalBounds();
 
-    m_plot.setBounds(rect.removeFromLeft(proportionOfWidth(0.7f)));
+    m_plot.setBounds(rect.removeFromLeft(proportionOfWidth(0.7f))
+                         .removeFromTop(proportionOfHeight(0.85f)));
 
-    audioSetupComp.setBounds(rect.removeFromRight(proportionOfWidth(0.3f)));
+    audioSetupComp.setBounds(rect.removeFromRight(proportionOfWidth(0.3f))
+                                 .removeFromTop(proportionOfHeight(0.85f)));
+
+    rect = getLocalBounds();
+    m_tracepoint_cb_label.setBounds(
+        rect.removeFromBottom(proportionOfHeight(0.15f)));
   }
 
   void releaseResources() override {
@@ -98,7 +114,14 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
   }
 
   //==============================================================================
-  void paint(Graphics& g) override {}
+  void paint(Graphics& g) override {
+    g.setColour(juce::Colours::grey);
+
+    g.drawRoundedRectangle(m_plot.getBounds().toFloat(), 5.0f, 5.0f);
+    g.drawRoundedRectangle(m_tracepoint_cb_label.getBounds().toFloat(), 5.0f,
+                           5.0f);
+    g.drawRoundedRectangle(audioSetupComp.getBounds().toFloat(), 5.0f, 5.0f);
+  }
 
   void timerCallback() override {
     if (nextFFTBlockReady) {
@@ -182,6 +205,8 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
   bool nextFFTBlockReady = false;
 
   cmp::SemiLogX m_plot;
+
+  juce::Label m_tracepoint_cb_label;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SimpleFreqRespDemo)
 };
