@@ -7,7 +7,7 @@ This is an example app for the CustomMatPlot Library. It plots the frequency res
 ## Requirements
 <a name="requirements"></a>
 
-- Compiler that supports C++17
+- Compiler that supports C++20 (TODO: support cxx 17)
 - CMake 3.12
 
 ## Build
