@@ -1,8 +1,8 @@
 # Realtime frequency plot example app
 
-![Image](img/ui.png)
-
 This is an example app for the CustomMatPlot Library. It plots the frequency response of the incoming microphone signal or the chosen input in the device manager. The app is based on the SimpleFFT example from JUCE.
+
+![Image](img/ui.png)
 
 ## Requirements
 <a name="requirements"></a>
