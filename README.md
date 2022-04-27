@@ -14,10 +14,14 @@ This is an example app for the CustomMatPlot Library. It plots the frequency res
 ```sh
 # Clone respiratory
 git clone https://gitlab.com/frans.rosencrantz/realtime-frequency-plot-example.git
-cd realtime-frequency-plot-example
 
+# Update submodules
+git submodule update --init
+
+cd realtime-frequency-plot-example
 mkdir build
 cd build
+
 # Configure
 cmake ../
 
