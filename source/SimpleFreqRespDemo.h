@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include "cmp_datamodels.h"
 #include <cmp_plot.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_dsp/juce_dsp.h>
@@ -51,6 +52,8 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
     startTimerHz(30);
     setSize(900, 400);
 
+    m_plot.setDownsamplingType(cmp::DownsamplingType::x_downsaming);
+
     m_plot.setTitle("Left & Right input frequency information");
     m_plot.setYLabel("Power [dB]");
     m_plot.setXLabel("Frequency [Hz]");
@@ -79,6 +82,8 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
       cmp::iota_delta<float>(x.begin(), x.end(), 1.0f,
                              float(new_sample_rate + 1) / float(fftSize));
     }
+
+    m_plot.plot(fftData, x_data);
   }
 
   void resized() override {
@@ -129,7 +134,7 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
         calcNextFrequencyResponse(i);
       }
 
-      m_plot.plot(fftData, x_data);
+      m_plot.realTimePlot(fftData);
 
       nextFFTBlockReady = false;
     }
