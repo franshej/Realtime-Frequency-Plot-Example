@@ -15,11 +15,13 @@
 
 #pragma once
 
-#include "cmp_datamodels.h"
 #include <cmp_plot.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_dsp/juce_dsp.h>
+
 #include <string>
+
+#include "cmp_datamodels.h"
 
 using namespace juce;
 
@@ -52,14 +54,14 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
     startTimerHz(30);
     setSize(900, 400);
 
-    m_plot.setDownsamplingType(cmp::DownsamplingType::x_downsaming);
+    m_plot.setDownsamplingType(cmp::DownsamplingType::x_downsampling);
 
     m_plot.setTitle("Left & Right input frequency information");
     m_plot.setYLabel("Power [dB]");
     m_plot.setXLabel("Frequency [Hz]");
 
     m_plot.yLim(-60.0f, 10.0f);
-    m_plot.xLim(100.0f, 18'000.0f);
+    m_plot.xLim(100.0f, 22'000.0f);
 
     m_plot.setLegend({"Left input", "Right input"});
 
@@ -79,8 +81,9 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
   void prepareToPlay(int /*samplesPerBlockExpected*/,
                      double new_sample_rate) override {
     for (auto& x : x_data) {
-      cmp::iota_delta<float>(x.begin(), x.end(), 1.0f,
-                             float(new_sample_rate + 1) / float(fftSize));
+      cmp::iota_delta<std::vector<float>::iterator, float>(
+          x.begin(), x.end(), 1.0f,
+          float(new_sample_rate + 1) / float(fftSize) * 2);
     }
 
     m_plot.plot(fftData, x_data);
@@ -134,7 +137,7 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
         calcNextFrequencyResponse(i);
       }
 
-      m_plot.realTimePlot(fftData);
+      m_plot.plotUpdateYOnly(fftData);
 
       nextFFTBlockReady = false;
     }
@@ -176,9 +179,7 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
         continue;
       }
 
-      constexpr auto smoothing_compensation = 10.0f;
-
-      s = 10.0f * log10f(s) + smoothing_compensation;
+      s = 10.0f * log10f(s);
     }
   }
 
