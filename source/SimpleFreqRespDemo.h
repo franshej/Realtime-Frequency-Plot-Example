@@ -43,7 +43,7 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
         window(fftSize, juce::dsp::WindowingFunction<float>::hann) {
     RuntimePermissions::request(
         RuntimePermissions::recordAudio, [this](bool granted) {
-          int numInputChannels = granted ? 2 : 0;
+          int numInputChannels = granted ? num_channels : 0;
           setAudioChannels(numInputChannels, num_channels);
         });
 
@@ -109,16 +109,15 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
 
   void getNextAudioBlock(const AudioSourceChannelInfo& bufferToFill) override {
     if (bufferToFill.buffer->getNumChannels() > 0) {
-      const auto* channelData =
-          bufferToFill.buffer->getReadPointer(0, bufferToFill.startSample);
-
-      for (auto ch_idx = 0u; ch_idx != num_channels; ++ch_idx) {
+      for (const auto ch_idx = 0u; ch_idx < bufferToFill.buffer->getNumChannels();
+           ++ch_idx) {
+        const auto* channelData = bufferToFill.buffer->getReadPointer(
+            ch_idx, bufferToFill.startSample);
         for (auto i = 0; i < bufferToFill.numSamples; ++i)
           pushNextSampleIntoFifo(channelData[i], ch_idx);
       }
-
-      bufferToFill.clearActiveBufferRegion();
     }
+    bufferToFill.clearActiveBufferRegion();
   }
 
   //==============================================================================
@@ -132,27 +131,28 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
   }
 
   void timerCallback() override {
-    if (nextFFTBlockReady) {
-      for (size_t i = 0; i < num_channels; i++) {
+    for (size_t i = 0; i < num_channels; ++i) {
+      if (nextFFTBlockReady[i]) {
         calcNextFrequencyResponse(i);
       }
+    }
 
+    if (std::all_of(nextFFTBlockReady.begin(), nextFFTBlockReady.end(),
+                    [](bool v) { return v; })) {
       m_plot.plotUpdateYOnly(fftData);
 
-      nextFFTBlockReady = false;
+      std::fill(nextFFTBlockReady.begin(), nextFFTBlockReady.end(), false);
     }
   }
 
-  void pushNextSampleIntoFifo(const float sample,
-                              const std::size_t ch_idx) noexcept {
+  void pushNextSampleIntoFifo(const float sample, const std::size_t ch_idx) {
     if (fifoIndex[ch_idx] == fftSize) {
-      if (!nextFFTBlockReady) {
+      if (!nextFFTBlockReady[ch_idx]) {
         std::copy(fifo[ch_idx].begin(), fifo[ch_idx].end(),
                   fftData[ch_idx].begin());
 
-        nextFFTBlockReady = true;
+        nextFFTBlockReady[ch_idx] = true;
       }
-
       fifoIndex[ch_idx] = 0;
     }
 
@@ -208,7 +208,7 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
 
   std::vector<int> fifoIndex = std::vector<int>(num_channels);
 
-  bool nextFFTBlockReady = false;
+  std::vector<bool> nextFFTBlockReady = std::vector<bool>(num_channels);
 
   cmp::SemiLogX m_plot;
 
