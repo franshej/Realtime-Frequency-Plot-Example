@@ -83,10 +83,15 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
     for (auto& x : x_data) {
       cmp::iota_delta<std::vector<float>::iterator, float>(
           x.begin(), x.end(), 1.0f,
-          float(new_sample_rate + 1) / float(fftSize) * 2);
+          float(new_sample_rate + 1) / float(fftSize));
     }
 
-    m_plot.plot(fftData, x_data);
+    cmp::GraphAttributeList attr(num_channels);
+
+    attr[0].gradient_colours = {juce::Colour(juce::Colours::aqua).withAlpha(0.70f), juce::Colour(Colours::whitesmoke).withAlpha(0.40f)};
+    attr[1].gradient_colours = {juce::Colour(juce::Colours::rebeccapurple).withAlpha(0.70f), juce::Colour(Colours::navajowhite).withAlpha(0.40f)};
+
+    m_plot.plot(fftData, x_data, attr);
   }
 
   void resized() override {
@@ -109,7 +114,7 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
 
   void getNextAudioBlock(const AudioSourceChannelInfo& bufferToFill) override {
     if (bufferToFill.buffer->getNumChannels() > 0) {
-      for (const auto ch_idx = 0u; ch_idx < bufferToFill.buffer->getNumChannels();
+      for (auto ch_idx = 0u; ch_idx < bufferToFill.buffer->getNumChannels();
            ++ch_idx) {
         const auto* channelData = bufferToFill.buffer->getReadPointer(
             ch_idx, bufferToFill.startSample);
@@ -161,17 +166,14 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
 
   void calcNextFrequencyResponse(const std::size_t ch_idx) {
     window.multiplyWithWindowingTable(fftData[ch_idx].data(), fftSize);  // [1]
-
     forwardFFT.performFrequencyOnlyForwardTransform(fftData[ch_idx].data());
 
     constexpr auto scale = 1.0f / float(fftSize);
-
     constexpr auto smoothing_factor = 0.5f;
 
     auto it_smooth = fftDataSmooth[ch_idx].begin();
     for (auto& s : fftData[ch_idx]) {
       s = s * scale;
-
       *it_smooth++ = s = (*it_smooth + s) * smoothing_factor;
 
       if (s < 1e-7f) {
