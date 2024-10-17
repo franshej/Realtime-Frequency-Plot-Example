@@ -52,7 +52,7 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
     addAndMakeVisible(m_tracepoint_cb_label);
 
     startTimerHz(30);
-    setSize(900, 400);
+    setSize(800, 480);
 
     m_plot.setDownsamplingType(cmp::DownsamplingType::x_downsampling);
 
