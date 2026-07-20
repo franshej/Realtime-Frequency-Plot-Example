@@ -60,8 +60,8 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
     m_plot.setYLabel("Power [dB]");
     m_plot.setXLabel("Frequency [Hz]");
 
-    m_plot.yLim(-60.0f, 10.0f);
-    m_plot.xLim(100.0f, 22'000.0f);
+    m_plot.setYLim(-60.0f, 10.0f);
+    m_plot.setXLim(100.0f, 22'000.0f);
 
     m_plot.setLegend({"Left input", "Right input"});
 
@@ -86,12 +86,21 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
           float(new_sample_rate + 1) / float(fftSize));
     }
 
-    cmp::GraphAttributeList attr(num_channels);
+    // Build one series per channel, each with its own x, y and gradient.
+    cmp::SeriesDataList series(num_channels);
+    for (int i = 0; i < num_channels; ++i) {
+      series[i].x = x_data[i];
+      series[i].y = fftData[i];
+    }
 
-    attr[0].gradient_colours = {juce::Colour(juce::Colours::aqua).withAlpha(0.70f), juce::Colour(Colours::whitesmoke).withAlpha(0.40f)};
-    attr[1].gradient_colours = {juce::Colour(juce::Colours::rebeccapurple).withAlpha(0.70f), juce::Colour(Colours::navajowhite).withAlpha(0.40f)};
+    series[0].attribute.gradient_colours = {
+        juce::Colour(juce::Colours::aqua).withAlpha(0.70f),
+        juce::Colour(Colours::whitesmoke).withAlpha(0.40f)};
+    series[1].attribute.gradient_colours = {
+        juce::Colour(juce::Colours::rebeccapurple).withAlpha(0.70f),
+        juce::Colour(Colours::navajowhite).withAlpha(0.40f)};
 
-    m_plot.plot(fftData, x_data, attr);
+    m_plot.plot(series);
   }
 
   void resized() override {
