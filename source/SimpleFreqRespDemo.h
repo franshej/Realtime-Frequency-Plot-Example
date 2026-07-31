@@ -60,10 +60,18 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
     m_plot.setYLabel("Power [dB]");
     m_plot.setXLabel("Frequency [Hz]");
 
-    m_plot.yLim(-60.0f, 10.0f);
-    m_plot.xLim(100.0f, 22'000.0f);
+    m_plot.setYLim(-60.0f, 10.0f);
+    m_plot.setXLim(100.0f, 22'000.0f);
 
     m_plot.setLegend({"Left input", "Right input"});
+
+    // Give each channel its own gradient fill (set up once).
+    m_series[0].attribute.gradient_colours = {
+        juce::Colour(juce::Colours::aqua).withAlpha(0.70f),
+        juce::Colour(Colours::whitesmoke).withAlpha(0.40f)};
+    m_series[1].attribute.gradient_colours = {
+        juce::Colour(juce::Colours::rebeccapurple).withAlpha(0.70f),
+        juce::Colour(Colours::navajowhite).withAlpha(0.40f)};
 
     m_plot.onTraceValueChange = [this](auto*, auto previous_trace_point,
                                        auto new_trace_point) {
@@ -80,18 +88,18 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
   //==============================================================================
   void prepareToPlay(int /*samplesPerBlockExpected*/,
                      double new_sample_rate) override {
-    for (auto& x : x_data) {
+    // Fill the frequency axis and size the y-values; the gradients were set
+    // up once in the constructor. The y-data is then driven by
+    // plotUpdateYOnly(fftData) every block.
+    for (auto& series : m_series) {
+      series.x.resize(2 * fftSize);
       cmp::iota_delta<std::vector<float>::iterator, float>(
-          x.begin(), x.end(), 1.0f,
+          series.x.begin(), series.x.end(), 1.0f,
           float(new_sample_rate + 1) / float(fftSize));
+      series.y.assign(series.x.size(), 0.0f);
     }
 
-    cmp::GraphAttributeList attr(num_channels);
-
-    attr[0].gradient_colours = {juce::Colour(juce::Colours::aqua).withAlpha(0.70f), juce::Colour(Colours::whitesmoke).withAlpha(0.40f)};
-    attr[1].gradient_colours = {juce::Colour(juce::Colours::rebeccapurple).withAlpha(0.70f), juce::Colour(Colours::navajowhite).withAlpha(0.40f)};
-
-    m_plot.plot(fftData, x_data, attr);
+    m_plot.plot(m_series);
   }
 
   void resized() override {
@@ -199,8 +207,9 @@ class SimpleFreqRespDemo : public AudioAppComponent, private Timer {
   std::vector<std::vector<float>> fifo =
       decltype(fifo)(num_channels, std::vector<float>(fftSize));
 
-  decltype(fifo) x_data =
-      decltype(fifo)(num_channels, std::vector<float>(2 * fftSize));
+  // The plotted series (x + gradient set up once); the y-data is refreshed
+  // every block via plotUpdateYOnly(fftData).
+  cmp::SeriesDataList m_series = cmp::SeriesDataList(num_channels);
 
   decltype(fifo) fftData =
       decltype(fifo)(num_channels, std::vector<float>(2 * fftSize));
